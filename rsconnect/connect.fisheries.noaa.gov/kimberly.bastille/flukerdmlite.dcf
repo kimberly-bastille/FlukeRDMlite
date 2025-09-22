@@ -1,0 +1,12 @@
+name: flukerdmlite
+title: FlukeRDMlite
+username: kimberly.bastille
+account: kimberly.bastille
+server: connect.fisheries.noaa.gov
+hostUrl: https://connect.fisheries.noaa.gov/__api__
+appId: 517
+bundleId: 3190
+url: https://connect.fisheries.noaa.gov/content/539bfbee-a914-45e2-ae8f-e6db92452d23/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
