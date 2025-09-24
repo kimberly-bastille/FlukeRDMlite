@@ -4052,6 +4052,18 @@ server <- function(input, output, session) {
     library(openssl)
     library(uuid)
     
+    
+    
+    # Check the rate limiter
+    rate_limit<-check_rate_limit()
+    
+    # If the rate limit fails, print a message, otherwise collect, save, and upload the regulations.
+    if (!rate_limit) {
+      output$message <- renderText("REGULATIONS NOT SAVED. Please wait a few seconds before submitting again. If you have submitted 10 regulations, you have reached the submission limit for this session.")
+    } else {
+    
+    
+    
     enqueue_simple_sas <- function(run_name, queue_url_sas = Sys.getenv("AZURE_STORAGE_QUEUE_URL")) {
       stopifnot(nzchar(run_name), nzchar(queue_url_sas))
       payload <- list(
@@ -4929,22 +4941,47 @@ server <- function(input, output, session) {
       regulations <- regulations %>% rbind(sfNCregs, bsbNCregs, scupNCregs)
       
     }
-        regulations <- cbind(user_name=User_name(),user_email=User_email(),regulations)
+      regulations <- cbind(user_name=User_name(),user_email=User_email(),regulations)
 
+    #Save regulations to a csv in saved_regs    
+    
     output_csv_name<-paste0("regs_", input$Run_Name, ".csv")
     readr::write_csv(regulations, file = here::here("saved_regs",output_csv_name))
     print("saved_inputs")
+    
+    #Stick into google 
+    # This works if I can save to the saved_regs folder
+    output_csv_name<-paste0("regs_", input$Run_Name, ".csv")
+    # Evaluate the user_storage_location function
+    user_storage_location<-user_storage_location()
+    # upload to GoogleDrive.
+    drive_upload(media=here::here("saved_regs",output_csv_name), path=user_storage_location, name=output_csv_name)
+    
+    # otherwise, we use googlesheets4 to create the file directly
+    # new_sheet <- gs4_create(
+    #   name = sheet_name,
+    #   sheets = list("output_csv_name" = regulations)
+    # )
+    # 
+    # drive_mv(new_sheet, path = user_storage_location())
+    
+    #Update the Rate limiter
+    rate_limiting$last_submission_time<-Sys.time()
+    rate_limiting$submission_count<-rate_limiting$submission_count+1
+    
+    print(paste0("Last Submission Time: ", rate_limiting$last_submission_time))
+    print(paste0("Total Successful Submissions: ", rate_limiting$submission_count))
     
     #enqueue_simple_sas(input$Run_Name)
     
     return(regulations)
     
-  })
-  
-  observeEvent(input$runmeplease, {
+    #Display message if regulations were saved
     output$message <- renderText("Regulations saved - we will run these soon. Be sure to change the run name before submitting another set of regulations.")
+    }
   })
   
+
   # Get list of files from the folder
   available_files <- reactive({
     folder_path <- here::here("output/")
