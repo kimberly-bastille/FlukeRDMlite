@@ -17,7 +17,7 @@ ui <- fluidPage(
              ### Figure and table output by state
              tabsetPanel(
                tabPanel("MA", 
-                        shiny::h2("Massachusettes"),
+                        shiny::h2("Massachusetts"),
                         plotly::plotlyOutput(outputId = "ma_rhl_fig"),# Harvest
                         plotly::plotlyOutput(outputId = "ma_CV_fig"),# Angler Satis
                         plotly::plotlyOutput(outputId = "ma_trips_fig"), # Ntrips
@@ -4069,7 +4069,7 @@ server <- function(input, output, session) {
     
     # If the rate limit fails, print a message, otherwise collect, save, and upload the regulations.
     if (!rate_limit) {
-     output$message <- renderText("REGULATIONS NOT SAVED. Please wait a few seconds before submitting again. If you have submitted 10 regulations, you have reached the submission limit for this session.")
+     output$message <- renderText("REGULATIONS NOT SAVED. Please wait 30 seconds between submitting regulations. If you have submitted 10 regulations, you have reached the submission limit for this session.")
     } else {
      output$message <- renderText("Working...")
     
@@ -4969,7 +4969,7 @@ server <- function(input, output, session) {
     print(uploaded_info)
     
     #Display message if regulations were saved
-    output$message <- renderText("Regulations saved - we will run these soon. Be sure to change the run name before submitting another set of regulations.")
+    output$message <- renderText("Regulations saved! We will run these soon. Be sure to change the run name before submitting another set of regulations.")
     
     # otherwise, we use googlesheets4 to create the file directly
     # new_sheet <- gs4_create(
