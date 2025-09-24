@@ -169,6 +169,18 @@ server <- function(input, output, session) {
   }
   
   
+
+  User_name <- function(){
+    User_name <- input$User_name
+    print(User_name)
+    return(User_name)
+  }
+  
+  User_email <- function(){
+    User_email <- tolower(input$User_email)
+    print(User_email)
+    return(User_email)
+  }
   #### Toggle extra seasons on UI ####
   # Allows for extra seasons to show and hide based on click
   shinyjs::onclick("SFMAaddSeason",
@@ -4876,9 +4888,10 @@ server <- function(input, output, session) {
       regulations <- regulations %>% rbind(sfNCregs, bsbNCregs, scupNCregs)
       
     }
-    
-    
-    readr::write_csv(regulations, file = here::here(paste0("saved_regs/regs_", input$Run_Name, ".csv")))
+        regulations <- cbind(user_name=User_name(),user_email=User_email(),regulations)
+
+    output_csv_name<-paste0("regs_", input$Run_Name, ".csv")
+    readr::write_csv(regulations, file = here::here("saved_regs",output_csv_name))
     print("saved_inputs")
     
     #enqueue_simple_sas(input$Run_Name)
