@@ -184,6 +184,20 @@ server <- function(input, output, session) {
     print(User_email)
     return(User_email)
   }
+  
+  #User email validation
+  user_storage_location <- function(){
+    # If the user email is in a list of good emails, save to one location
+    # otherwise save to another location
+    
+    if(User_email() %in% Approved_Emails){
+      user_storage_location<-to_run_path
+    } else{
+      user_storage_location<-questionable_path
+    }
+    print(user_storage_location)
+    return(user_storage_location)
+  }
   #### Toggle extra seasons on UI ####
   # Allows for extra seasons to show and hide based on click
   shinyjs::onclick("SFMAaddSeason",
