@@ -3,7 +3,7 @@ library(shiny)
 library(shinyjs)
 library(dplyr)
 library(googledrive)
-library(googlesheets4)
+#library(googlesheets4)
 #### Start UI ####
 ui <- fluidPage(
   useShinyjs(),
