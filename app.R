@@ -198,6 +198,30 @@ server <- function(input, output, session) {
     print(user_storage_location)
     return(user_storage_location)
   }
+  
+  # Rate limiting function
+  check_rate_limit <- function() {
+    current_time <- Sys.time()
+    time_diff <- as.numeric(current_time - rate_limiting$last_submission_time)
+    
+    # Minimum 30 seconds between submissions
+    if (time_diff < 30) {
+      return(FALSE)
+    }
+    
+    # Maximum 10 submissions per session
+    if (rate_limiting$submission_count >= 10) {
+      return(FALSE)
+    }
+    
+    return(TRUE)
+  }
+  
+  #set up a list to hold the rate-limiting info.
+  rate_limiting<-list()
+  rate_limiting$last_submission_time<-Sys.time()
+  rate_limiting$submission_count<-0
+  
   #### Toggle extra seasons on UI ####
   # Allows for extra seasons to show and hide based on click
   shinyjs::onclick("SFMAaddSeason",
