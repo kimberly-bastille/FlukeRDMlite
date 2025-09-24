@@ -96,6 +96,8 @@ ui <- fluidPage(
               strong(div("INSTRUCTIONS: (1) Give your policy a name, (2) Select one or more states,  (3) Select regulations, (4) Click run me and wait for the model to run, (5) Use the `Results` tab to examine the results.", style = "color:blue")), # Warning for users
               # Collect the Run Name
               textInput("Run_Name", "Please give your policy a unique name using your initials and a number (ex. AB1)."),
+              textInput("User_name", "Your Name"),
+              textInput("User_email", "Your Email Address"),
               
               shinyWidgets::awesomeCheckboxGroup( # Select which state(s) to run
                 inputId = "state", 
@@ -104,8 +106,8 @@ ui <- fluidPage(
                 inline = TRUE,
                 status = "danger"),
               
-              #Run Button
-              actionButton("runmeplease", "Run Me"), 
+              #Save Button
+              actionButton("runmeplease", "Save Me"), 
               
               textOutput("message"),
               # Add UI code for each state
@@ -167,6 +169,18 @@ server <- function(input, output, session) {
   }
   
   
+
+  User_name <- function(){
+    User_name <- input$User_name
+    print(User_name)
+    return(User_name)
+  }
+  
+  User_email <- function(){
+    User_email <- tolower(input$User_email)
+    print(User_email)
+    return(User_email)
+  }
   #### Toggle extra seasons on UI ####
   # Allows for extra seasons to show and hide based on click
   shinyjs::onclick("SFMAaddSeason",
@@ -4874,9 +4888,10 @@ server <- function(input, output, session) {
       regulations <- regulations %>% rbind(sfNCregs, bsbNCregs, scupNCregs)
       
     }
-    
-    
-    readr::write_csv(regulations, file = here::here(paste0("saved_regs/regs_", input$Run_Name, ".csv")))
+        regulations <- cbind(user_name=User_name(),user_email=User_email(),regulations)
+
+    output_csv_name<-paste0("regs_", input$Run_Name, ".csv")
+    readr::write_csv(regulations, file = here::here("saved_regs",output_csv_name))
     print("saved_inputs")
     
     #enqueue_simple_sas(input$Run_Name)
@@ -4886,7 +4901,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$runmeplease, {
-    output$message <- renderText("Regulations saved - we will run these soon be sure to change run name before clicking again.")
+    output$message <- renderText("Regulations saved - we will run these soon. Be sure to change the run name before submitting another set of regulations.")
   })
   
   # Get list of files from the folder
