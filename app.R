@@ -106,8 +106,8 @@ ui <- fluidPage(
                 inline = TRUE,
                 status = "danger"),
               
-              #Run Button
-              actionButton("runmeplease", "Run Me"), 
+              #Save Button
+              actionButton("runmeplease", "Save Me"), 
               
               textOutput("message"),
               # Add UI code for each state
@@ -4901,7 +4901,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$runmeplease, {
-    output$message <- renderText("Regulations saved - we will run these soon be sure to change run name before clicking again.")
+    output$message <- renderText("Regulations saved - we will run these soon. Be sure to change the run name before submitting another set of regulations.")
   })
   
   # Get list of files from the folder
