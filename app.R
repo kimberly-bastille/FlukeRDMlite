@@ -2,7 +2,8 @@
 library(shiny)
 library(shinyjs)
 library(dplyr)
-
+library(googledrive)
+library(googlesheets4)
 #### Start UI ####
 ui <- fluidPage(
   useShinyjs(),
@@ -126,6 +127,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   library(magrittr) 
+  
+  source(here::here(".secrets","AppSetup.R"))
   
   ### Percent Change Approach
   sf_percent_change <- 10
