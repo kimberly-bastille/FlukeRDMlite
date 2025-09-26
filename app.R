@@ -2,7 +2,8 @@
 library(shiny)
 library(shinyjs)
 library(dplyr)
-
+library(googledrive)
+library(googlesheets4)
 #### Start UI ####
 ui <- fluidPage(
   useShinyjs(),
@@ -16,7 +17,7 @@ ui <- fluidPage(
              ### Figure and table output by state
              tabsetPanel(
                tabPanel("MA", 
-                        shiny::h2("Massachusettes"),
+                        shiny::h2("Massachusetts"),
                         plotly::plotlyOutput(outputId = "ma_rhl_fig"),# Harvest
                         plotly::plotlyOutput(outputId = "ma_CV_fig"),# Angler Satis
                         plotly::plotlyOutput(outputId = "ma_trips_fig"), # Ntrips
@@ -96,6 +97,8 @@ ui <- fluidPage(
               strong(div("INSTRUCTIONS: (1) Give your policy a name, (2) Select one or more states,  (3) Select regulations, (4) Click run me and wait for the model to run, (5) Use the `Results` tab to examine the results.", style = "color:blue")), # Warning for users
               # Collect the Run Name
               textInput("Run_Name", "Please give your policy a unique name using your initials and a number (ex. AB1)."),
+              textInput("User_name", "Your Name"),
+              textInput("User_email", "Your Email Address"),
               
               shinyWidgets::awesomeCheckboxGroup( # Select which state(s) to run
                 inputId = "state", 
@@ -104,8 +107,8 @@ ui <- fluidPage(
                 inline = TRUE,
                 status = "danger"),
               
-              #Run Button
-              actionButton("runmeplease", "Run Me"), 
+              #Save Button
+              actionButton("runmeplease", "Save Me"), 
               
               textOutput("message"),
               # Add UI code for each state
@@ -124,6 +127,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   library(magrittr) 
+  
+  source(here::here(".secrets","AppSetup.R"))
   
   ### Percent Change Approach
   sf_percent_change <- 10
@@ -166,6 +171,64 @@ server <- function(input, output, session) {
     return(Run_Name)
   }
   
+  
+
+  User_name <- function(){
+    User_name <- input$User_name
+    print(User_name)
+    return(User_name)
+  }
+  
+  User_email <- function(){
+    User_email <- tolower(input$User_email)
+    print(User_email)
+    return(User_email)
+  }
+  
+  #User email validation
+  user_storage_location <- function(){
+    # If the user email is in a list of good emails, save to one location
+    # otherwise save to another location
+    
+    if(User_email() %in% Approved_Emails){
+      user_storage_location<-to_run_path
+    } else{
+      user_storage_location<-questionable_path
+    }
+    print(user_storage_location)
+    return(user_storage_location)
+  }
+  
+  # Rate limiting function
+  check_rate_limit <- function() {
+    current_time <- Sys.time()
+    time_diff <- as.numeric(current_time - rate_limit_holder$last_submission_time, units="secs")
+    
+    # Minimum 30 seconds between submissions
+    if (time_diff < 30) {
+      return(FALSE)
+    }
+    
+    # Maximum 10 submissions per session
+    if (rate_limit_holder$submission_count >= 10) {
+      return(FALSE)
+    }
+    
+    return(TRUE)
+  }
+  
+
+  # Initialize rate-limiting values
+
+  rate_limit_holder <- reactiveValues(
+    submission_count = 0,
+    last_submission_time = Sys.time() - 60
+  )
+  
+  
+  
+  
+   
   
   #### Toggle extra seasons on UI ####
   # Allows for extra seasons to show and hide based on click
@@ -3480,11 +3543,11 @@ server <- function(input, output, session) {
   perc_changes <- function(){
     perc_changes <- outputs() %>% 
       dplyr::filter(stringr::str_detect(filename, "SQ")) %>% 
-      dplyr::group_by(state,filename, category, mode, keep_release, number_weight) %>%
+      dplyr::group_by(state,filename, metric, mode, species) %>%
       dplyr::summarise(value = median(value)) %>% 
-      dplyr::mutate(pca_reqs = dplyr::case_when(state == "MA" & category == "sf" ~ .1, TRUE ~ .1), 
-                    pca_reqs = dplyr::case_when(state == "MA" & category == "bsb" ~ .1, TRUE ~ pca_reqs), 
-                    pca_reqs = dplyr::case_when(state == "MA" & category == "scup" ~ .1, TRUE ~ pca_reqs))
+      dplyr::mutate(pca_reqs = dplyr::case_when(species == "sf" ~ .1, TRUE ~ .1), 
+                    pca_reqs = dplyr::case_when(species == "bsb" ~ .1, TRUE ~ pca_reqs), 
+                    pca_reqs = dplyr::case_when(species == "scup" ~ .1, TRUE ~ pca_reqs))
   }
   
   
@@ -3499,19 +3562,17 @@ server <- function(input, output, session) {
   output$summary_rhl_fig<- plotly::renderPlotly({
 
     ref_pct <- outputs() %>% #all_data %>%
-      dplyr::filter(number_weight == "weight" &
-                      keep_release == "keep" & mode == "all modes" & model == "SQ") %>%
+      dplyr::filter(metric == "keep_weight" & mode == "all modes" & model == "SQ") %>%
       dplyr::mutate(ref_value = value) %>%
-      dplyr::select(filename, category, state, draw, ref_value)
+      dplyr::select(filename, species, state, draw, ref_value)
 
     harv <- outputs() %>% #all_data %>%
-      dplyr::filter(number_weight == "weight" &
-                      keep_release == "keep" & mode == "all modes") %>%
-      dplyr::left_join(ref_pct, by = join_by(category,  state, draw)) %>%
-      dplyr::mutate(pct_diff = (value - ref_value) / ref_value * 100) %>%
-      dplyr::group_by(state,filename.x, category, keep_release, number_weight) %>%
+      dplyr::filter(metric == "keep_weight" & mode == "all modes") %>%
+      dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
+      dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1) * 100) %>%
+      dplyr::group_by(state,filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = median(pct_diff)) %>%
-      tidyr::pivot_wider(names_from = category, values_from = median_pct_diff)
+      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
 
 
     harv2 <- harv %>%
@@ -3523,6 +3584,8 @@ server <- function(input, output, session) {
       ggplot2::facet_wrap(~ state) +
       ggplot2::labs(title = "SF vs BSB Harvest Limits by state",x = "Black Sea Bass RHL",y = "Summer Flounder RHL") +
       #ggplot2::scale_color_gradient2( low = "blue", mid = "gray", high = "red",  midpoint = 0, limits = c(-10, 10)) + 
+      ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
+      ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::theme_bw()
 
     fig<- plotly::ggplotly(harv2) %>%
@@ -3533,19 +3596,17 @@ server <- function(input, output, session) {
   output$summary_percdiff_table <- DT::renderDT({
 
     ref_pct <- outputs() %>% #all_data %>%
-      dplyr::filter(number_weight == "weight" &
-                      keep_release == "keep" & mode == "all modes" & model == "SQ") %>%
+      dplyr::filter(metric == "keep_weight" &  mode == "all modes" & model == "SQ") %>%
       dplyr::mutate(ref_value = value) %>%
-      dplyr::select(filename, category, state, draw, ref_value)
+      dplyr::select(filename, species, state, draw, ref_value)
     
     harv <- outputs() %>% #all_data %>%
-      dplyr::filter(number_weight == "weight" &
-                      keep_release == "keep" & mode == "all modes") %>%
-      dplyr::left_join(ref_pct, by = join_by(category,  state, draw)) %>%
-      dplyr::mutate(pct_diff = (value - ref_value) / ref_value * 100) %>%
-      dplyr::group_by(state,filename.x, category, keep_release, number_weight) %>%
+      dplyr::filter(metric == "keep_weight" & mode == "all modes") %>%
+      dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
+      dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
+      dplyr::group_by(state,filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = median(pct_diff)) %>%
-      tidyr::pivot_wider(names_from = category, values_from = median_pct_diff)
+      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
 
     tab<- harv %>% 
       dplyr::mutate(bsb_ok  = abs(bsb)  <= bsb_percent_change,
@@ -3554,7 +3615,7 @@ server <- function(input, output, session) {
       dplyr::rowwise() %>%
       dplyr::mutate(ok_count = paste0(sum(c_across(c(bsb_ok, scup_ok, sf_ok))), "/3")) %>%
       dplyr::ungroup()%>%
-      dplyr::select( -keep_release, -number_weight,  -bsb_ok ,-scup_ok, -sf_ok) %>%
+      dplyr::select( -metric,  -bsb_ok ,-scup_ok, -sf_ok) %>%
       mutate(
         bsb  = sprintf("%.2f", bsb),
         scup = sprintf("%.2f", scup),
@@ -3594,28 +3655,26 @@ server <- function(input, output, session) {
     # Reference values (SQ model only)
     ref_pct <- data %>%
       dplyr::filter(
-        number_weight == "weight",
-        keep_release == "keep",
+        metric == "keep_weight",
         mode == "all modes",
         model == "SQ",
         state == state_name
       ) %>%
       dplyr::mutate(ref_value = value) %>%
-      dplyr::select(filename, category, state, draw, ref_value)
+      dplyr::select(filename, species, state, draw, ref_value)
     
     # Percent difference vs reference
     harv <- data %>%
       dplyr::filter(
-        number_weight == "weight",
-        keep_release == "keep",
+        metric == "keep_weight",
         mode == "all modes",
         state == state_name
       ) %>%
-      dplyr::left_join(ref_pct, by = dplyr::join_by(category, state, draw)) %>%
-      dplyr::mutate(pct_diff = (value - ref_value) / ref_value * 100) %>%
-      dplyr::group_by(state, filename.x, category, keep_release, number_weight) %>%
+      dplyr::left_join(ref_pct, by = dplyr::join_by(species, state, draw)) %>%
+      dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
+      dplyr::group_by(state, filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = median(pct_diff), .groups = "drop") %>%
-      tidyr::pivot_wider(names_from = category, values_from = median_pct_diff)
+      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
     
     # Static ggplot
     harv2 <- harv %>%
@@ -3627,6 +3686,8 @@ server <- function(input, output, session) {
         x = "Black Sea Bass RHL",
         y = "Summer Flounder RHL"
       ) +
+      ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
+      ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::theme_bw()
     
     # Convert to plotly
@@ -3638,23 +3699,21 @@ server <- function(input, output, session) {
   
   cv_fig <- function(data, state_name){
     ref_pct <- data %>% 
-      dplyr::filter(number_weight == "weight" & state == state_name &
-                      keep_release == "keep" & mode == "all modes" & model == "SQ") %>%
+      dplyr::filter(state == state_name & metric == "keep_weight"& mode == "all modes" & model == "SQ") %>%
       dplyr::mutate(ref_value = value) %>%
-      dplyr::select(filename, category, state, draw, ref_value)
+      dplyr::select(filename, species, state, draw, ref_value)
     
     harv <- data %>% #all_data %>%
-      dplyr::filter(number_weight == "weight" & state == state_name &
-                      keep_release == "keep" & mode == "all modes") %>%
-      dplyr::left_join(ref_pct, by = join_by(category,  state, draw)) %>%
-      dplyr::mutate(pct_diff = (value - ref_value) / ref_value * 100) %>%
-      dplyr::group_by(state,filename.x, category, keep_release, number_weight) %>%
+      dplyr::filter( state == state_name & metric == "keep_weight" & mode == "all modes") %>%
+      dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
+      dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
+      dplyr::group_by(state,filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = median(pct_diff)) %>%
       dplyr::rename(filename = filename.x)
     #tidyr::pivot_wider(names_from = category, values_from = median_pct_diff)
     
     welfare <-  data %>% 
-      dplyr::filter(category %in% c("CV"),
+      dplyr::filter(metric %in% c("CV"),
                     state == state_name,
                     mode == "all modes") %>%
       # dplyr::group_by( filename, category, draw) %>%
@@ -3673,7 +3732,9 @@ server <- function(input, output, session) {
       ggplot2::ylab("Angler Satisfaction ($M)")+
       ggplot2::xlab("Percent difference of Harvest from SQ")+
       ggplot2::theme(legend.position = "none")+
-      ggplot2::facet_wrap(.~category)+
+      ggplot2::facet_wrap(.~species)+
+      ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
+      ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::theme_bw()
     
     fig<- plotly::ggplotly(p1) %>%
@@ -3686,33 +3747,31 @@ server <- function(input, output, session) {
     # Reference values (SQ model only)
     ref_pct <- data %>%
       dplyr::filter(
-        number_weight == "weight",
+        metric == "keep_weight",
         state == state_name,
-        keep_release == "keep",
         mode == "all modes",
         model == "SQ"
       ) %>%
       dplyr::mutate(ref_value = value) %>%
-      dplyr::select(filename, category, state, draw, ref_value)
+      dplyr::select(filename, species, state, draw, ref_value)
     
     # Harvest percent difference
     harv <- data %>%
       dplyr::filter(
-        number_weight == "weight",
+        metric == "keep_weight",
         state == state_name,
-        keep_release == "keep",
         mode == "all modes"
       ) %>%
-      dplyr::left_join(ref_pct, by = dplyr::join_by(category, state, draw)) %>%
-      dplyr::mutate(pct_diff = (value - ref_value) / ref_value * 100) %>%
-      dplyr::group_by(state, filename.x, category, keep_release, number_weight) %>%
+      dplyr::left_join(ref_pct, by = dplyr::join_by(species, state, draw)) %>%
+      dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
+      dplyr::group_by(state, filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = median(pct_diff), .groups = "drop") %>%
       dplyr::rename(filename = filename.x)
     
     # Trips data
     trips <- data %>%
       dplyr::filter(
-        category %in% c("predicted trips"),
+        metric %in% c("predicted trips"),
         state == state_name,
         mode == "all modes"
       ) %>%
@@ -3730,7 +3789,9 @@ server <- function(input, output, session) {
       ggplot2::ylab("Predicted trips (N) millions") +
       ggplot2::xlab("Percent difference of Harvest from SQ") +
       ggplot2::theme(legend.position = "none") +
-      ggplot2::facet_wrap(. ~ category) +
+      ggplot2::facet_wrap(. ~ species) +
+      ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
+      ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::theme_bw()
     
     # Convert to plotly
@@ -3745,40 +3806,37 @@ server <- function(input, output, session) {
     # Reference values (SQ model only, keep only)
     ref_pct <- data %>%
       dplyr::filter(
-        number_weight == "weight",
+        metric == "keep_weight",
         state == state_name,
-        keep_release == "keep",
         mode == "all modes",
         model == "SQ"
       ) %>%
       dplyr::mutate(ref_value = value) %>%
-      dplyr::select(filename, category, state, draw, ref_value)
+      dplyr::select(filename, species, state, draw, ref_value)
     
     # Harvest percent difference
     harv <- data %>%
       dplyr::filter(
-        number_weight == "weight",
+        metric == "keep_weight",
         state == state_name,
-        keep_release == "keep",
         mode == "all modes"
       ) %>%
-      dplyr::left_join(ref_pct, by = dplyr::join_by(category, state, draw)) %>%
-      dplyr::mutate(pct_diff = (value - ref_value) / ref_value * 100) %>%
-      dplyr::group_by(state, filename.x, category, number_weight) %>%
+      dplyr::left_join(ref_pct, by = dplyr::join_by(species, state, draw)) %>%
+      dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
+      dplyr::group_by(state, filename.x, species, metric) %>%
       dplyr::summarise(median_keep_pct_diff = median(pct_diff), .groups = "drop") %>%
       dplyr::rename(filename = filename.x)
     
     # Discards
     disc <- data %>%
       dplyr::filter(
-        number_weight == "weight",
+        metric == "release_weight",
         state == state_name,
-        keep_release == "release",
         mode == "all modes"
       ) %>%
-      dplyr::group_by(state, filename, category, number_weight) %>%
+      dplyr::group_by(state, filename, species) %>%
       dplyr::summarise(median_rel_weight = median(value), .groups = "drop") %>%
-      dplyr::left_join(harv, by = c("state", "filename", "category", "number_weight")) %>% 
+      dplyr::left_join(harv, by = c("state", "filename", "species")) %>% 
       dplyr::mutate(median_rel_weight = median_rel_weight/1000000)
     
     # Static plot
@@ -3790,7 +3848,9 @@ server <- function(input, output, session) {
       ggplot2::ylab("Discards (million lbs)") +
       ggplot2::xlab("Percent difference of Harvest from SQ") +
       ggplot2::theme(legend.position = "none") +
-      ggplot2::facet_wrap(. ~ category) +
+      ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
+      ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
+      ggplot2::facet_wrap(. ~ species) +
       ggplot2::theme_bw()
     
     # Convert to plotly
@@ -3996,6 +4056,19 @@ server <- function(input, output, session) {
     library(jsonlite)
     library(openssl)
     library(uuid)
+    
+
+
+    # Check the rate limiter
+    rate_limit<-check_rate_limit()
+    print(paste0("rate limit is:", rate_limit))
+    
+    # If the rate limit fails, print a message, otherwise collect, save, and upload the regulations.
+    if (!rate_limit) {
+     output$message <- renderText("REGULATIONS NOT SAVED. Please wait 30 seconds between submitting regulations. If you have submitted 10 regulations, you have reached the submission limit for this session.")
+    } else {
+     output$message <- renderText("Working...")
+    
     
     enqueue_simple_sas <- function(run_name, queue_url_sas = Sys.getenv("AZURE_STORAGE_QUEUE_URL")) {
       stopifnot(nzchar(run_name), nzchar(queue_url_sas))
@@ -4874,21 +4947,51 @@ server <- function(input, output, session) {
       regulations <- regulations %>% rbind(sfNCregs, bsbNCregs, scupNCregs)
       
     }
+      regulations <- cbind(user_name=User_name(),user_email=User_email(),regulations)
+
+    #Save regulations to a csv in saved_regs    
+    
+    output_csv_name<-paste0("regs_", input$Run_Name, ".csv")
+    readr::write_csv(regulations, file = here::here("saved_regs",output_csv_name))
+    print("Regulations_saved_locally")
+    output$message <- renderText("Regulations saved locally")
+    
+    #Stick into google 
+    # This works if I can save to the saved_regs folder
+    # Evaluate the user_storage_location function
+    user_storage_location<-user_storage_location()
+    # upload to GoogleDrive
+    uploaded_info<-drive_upload(media=here::here("saved_regs",output_csv_name), path=user_storage_location, name=output_csv_name)
+    print(uploaded_info)
+    
+    #Display message if regulations were saved
+    output$message <- renderText("Regulations saved! We will run these soon. Be sure to change the run name before submitting another set of regulations.")
+    
+    # otherwise, we use googlesheets4 to create the file directly
+    # new_sheet <- gs4_create(
+    #   name = sheet_name,
+    #   sheets = list("output_csv_name" = regulations)
+    # )
+    # 
+    # drive_mv(new_sheet, path = user_storage_location)
+    
+    #Update the Rate limiter
+    rate_limit_holder$submission_count<- rate_limit_holder$submission_count+1
+    rate_limit_holder$last_submission_time <- Sys.time()
     
     
-    readr::write_csv(regulations, file = here::here(paste0("saved_regs/regs_", input$Run_Name, ".csv")))
-    print("saved_inputs")
+    
+    print(paste0("Last Submission Time: ", rate_limit_holder$last_submission_time))
+    print(paste0("Total Successful Submissions: ",rate_limit_holder$submission_count))
     
     #enqueue_simple_sas(input$Run_Name)
     
     return(regulations)
     
+     }
   })
   
-  observeEvent(input$runmeplease, {
-    output$message <- renderText("Regulations saved - we will run these soon be sure to change run name before clicking again.")
-  })
-  
+
   # Get list of files from the folder
   available_files <- reactive({
     folder_path <- here::here("output/")
