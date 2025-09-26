@@ -2,7 +2,8 @@
 library(shiny)
 library(shinyjs)
 library(dplyr)
-
+library(googledrive)
+library(googlesheets4)
 #### Start UI ####
 ui <- fluidPage(
   useShinyjs(),
@@ -16,7 +17,7 @@ ui <- fluidPage(
              ### Figure and table output by state
              tabsetPanel(
                tabPanel("MA", 
-                        shiny::h2("Massachusettes"),
+                        shiny::h2("Massachusetts"),
                         plotly::plotlyOutput(outputId = "ma_rhl_fig"),# Harvest
                         plotly::plotlyOutput(outputId = "ma_CV_fig"),# Angler Satis
                         plotly::plotlyOutput(outputId = "ma_trips_fig"), # Ntrips
@@ -96,6 +97,8 @@ ui <- fluidPage(
               strong(div("INSTRUCTIONS: (1) Give your policy a name, (2) Select one or more states,  (3) Select regulations, (4) Click run me and wait for the model to run, (5) Use the `Results` tab to examine the results.", style = "color:blue")), # Warning for users
               # Collect the Run Name
               textInput("Run_Name", "Please give your policy a unique name using your initials and a number (ex. AB1)."),
+              textInput("User_name", "Your Name"),
+              textInput("User_email", "Your Email Address"),
               
               shinyWidgets::awesomeCheckboxGroup( # Select which state(s) to run
                 inputId = "state", 
@@ -104,8 +107,8 @@ ui <- fluidPage(
                 inline = TRUE,
                 status = "danger"),
               
-              #Run Button
-              actionButton("runmeplease", "Run Me"), 
+              #Save Button
+              actionButton("runmeplease", "Save Me"), 
               
               textOutput("message"),
               # Add UI code for each state
@@ -124,6 +127,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   library(magrittr) 
+  
+  source(here::here(".secrets","AppSetup.R"))
   
   ### Percent Change Approach
   sf_percent_change <- 10
@@ -166,6 +171,64 @@ server <- function(input, output, session) {
     return(Run_Name)
   }
   
+  
+
+  User_name <- function(){
+    User_name <- input$User_name
+    print(User_name)
+    return(User_name)
+  }
+  
+  User_email <- function(){
+    User_email <- tolower(input$User_email)
+    print(User_email)
+    return(User_email)
+  }
+  
+  #User email validation
+  user_storage_location <- function(){
+    # If the user email is in a list of good emails, save to one location
+    # otherwise save to another location
+    
+    if(User_email() %in% Approved_Emails){
+      user_storage_location<-to_run_path
+    } else{
+      user_storage_location<-questionable_path
+    }
+    print(user_storage_location)
+    return(user_storage_location)
+  }
+  
+  # Rate limiting function
+  check_rate_limit <- function() {
+    current_time <- Sys.time()
+    time_diff <- as.numeric(current_time - rate_limit_holder$last_submission_time, units="secs")
+    
+    # Minimum 30 seconds between submissions
+    if (time_diff < 30) {
+      return(FALSE)
+    }
+    
+    # Maximum 10 submissions per session
+    if (rate_limit_holder$submission_count >= 10) {
+      return(FALSE)
+    }
+    
+    return(TRUE)
+  }
+  
+
+  # Initialize rate-limiting values
+
+  rate_limit_holder <- reactiveValues(
+    submission_count = 0,
+    last_submission_time = Sys.time() - 60
+  )
+  
+  
+  
+  
+   
   
   #### Toggle extra seasons on UI ####
   # Allows for extra seasons to show and hide based on click
@@ -3997,6 +4060,20 @@ server <- function(input, output, session) {
     library(openssl)
     library(uuid)
     
+    
+
+
+    # Check the rate limiter
+    rate_limit<-check_rate_limit()
+    print(paste0("rate limit is:", rate_limit))
+    
+    # If the rate limit fails, print a message, otherwise collect, save, and upload the regulations.
+    if (!rate_limit) {
+     output$message <- renderText("REGULATIONS NOT SAVED. Please wait 30 seconds between submitting regulations. If you have submitted 10 regulations, you have reached the submission limit for this session.")
+    } else {
+     output$message <- renderText("Working...")
+    
+    
     enqueue_simple_sas <- function(run_name, queue_url_sas = Sys.getenv("AZURE_STORAGE_QUEUE_URL")) {
       stopifnot(nzchar(run_name), nzchar(queue_url_sas))
       payload <- list(
@@ -4874,21 +4951,51 @@ server <- function(input, output, session) {
       regulations <- regulations %>% rbind(sfNCregs, bsbNCregs, scupNCregs)
       
     }
+      regulations <- cbind(user_name=User_name(),user_email=User_email(),regulations)
+
+    #Save regulations to a csv in saved_regs    
+    
+    output_csv_name<-paste0("regs_", input$Run_Name, ".csv")
+    readr::write_csv(regulations, file = here::here("saved_regs",output_csv_name))
+    print("Regulations_saved_locally")
+    output$message <- renderText("Regulations saved locally")
+    
+    #Stick into google 
+    # This works if I can save to the saved_regs folder
+    # Evaluate the user_storage_location function
+    user_storage_location<-user_storage_location()
+    # upload to GoogleDrive
+    uploaded_info<-drive_upload(media=here::here("saved_regs",output_csv_name), path=user_storage_location, name=output_csv_name)
+    print(uploaded_info)
+    
+    #Display message if regulations were saved
+    output$message <- renderText("Regulations saved! We will run these soon. Be sure to change the run name before submitting another set of regulations.")
+    
+    # otherwise, we use googlesheets4 to create the file directly
+    # new_sheet <- gs4_create(
+    #   name = sheet_name,
+    #   sheets = list("output_csv_name" = regulations)
+    # )
+    # 
+    # drive_mv(new_sheet, path = user_storage_location)
+    
+    #Update the Rate limiter
+    rate_limit_holder$submission_count<- rate_limit_holder$submission_count+1
+    rate_limit_holder$last_submission_time <- Sys.time()
     
     
-    readr::write_csv(regulations, file = here::here(paste0("saved_regs/regs_", input$Run_Name, ".csv")))
-    print("saved_inputs")
+    
+    print(paste0("Last Submission Time: ", rate_limit_holder$last_submission_time))
+    print(paste0("Total Successful Submissions: ",rate_limit_holder$submission_count))
     
     #enqueue_simple_sas(input$Run_Name)
     
     return(regulations)
     
+     }
   })
   
-  observeEvent(input$runmeplease, {
-    output$message <- renderText("Regulations saved - we will run these soon be sure to change run name before clicking again.")
-  })
-  
+
   # Get list of files from the folder
   available_files <- reactive({
     folder_path <- here::here("output/")
