@@ -3533,9 +3533,11 @@ server <- function(input, output, session) {
   outputs <- function(){
     flist <- list.files(path = here::here("output/"), pattern = "\\.csv$", full.names = TRUE)
     
+    read_cols<-c("metric","species","value", "mode","state","draw","model")
+    read_cols_types<-c("c","c","d","c","c","i","c")
     all_data <- flist %>%
       set_names(flist) %>%  # Optional: keep file names for reference
-      purrr::map_dfr(readr::read_csv, .id = "filename") %>% 
+      purrr::map_dfr(readr::read_csv, .id = "filename", col_select=all_of(read_cols), col_types=read_cols_types) %>% 
       dplyr::mutate(filename = stringr::str_extract(filename, "(?<=output_).+?(?=_202)"))
     return(all_data)
   }
