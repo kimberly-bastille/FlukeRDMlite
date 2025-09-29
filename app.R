@@ -3583,7 +3583,7 @@ server <- function(input, output, session) {
       #ggplot2::geom_vline(data = pca_bsb, ggplot2::aes(xintercept = pca_reqs), color = "black", linetype = "dashed")+
       ggplot2::facet_wrap(~ state) +
       ggplot2::scale_x_continuous(labels = function(x) format(round(x, 2), nsmall = 0)) +
-      ggplot2::scale_y_continuous(labels = function(x) format(round(x, 2), nsmall = 0))
+      ggplot2::scale_y_continuous(labels = function(x) format(round(x, 2), nsmall = 0)) + 
       ggplot2::labs(title = "Percentage change in SF (vertical) and BSB (horizontal) Recreational Harvest By State",
                     x = "Change in BSB Harvest(%)",
                     y = "Change in SF Harvest (%)",
@@ -3622,12 +3622,12 @@ server <- function(input, output, session) {
       dplyr::ungroup()%>%
       dplyr::select( -metric,  -bsb_ok ,-scup_ok, -sf_ok) %>%
       mutate(
-        bsb  = sprintf("%.2f", bsb),
-        scup = sprintf("%.2f", scup),
-        sf   = sprintf("%.2f", sf)
+        bsb  = paste0(sprintf("%.2f", bsb),"%"),
+        scup = paste0(sprintf("%.2f", scup),"%"),
+        sf   = paste0(sprintf("%.2f", sf),"%")
       ) %>% 
       dplyr::rename(State = state, `Run Name` = filename.x,
-                    BSB = bsb, Scup = scup, SF = sf, `Below RHL` = ok_count)
+                    `BSB Change`= bsb, `Scup Change`= scup, `SF Change` = sf, `Below RHL` = ok_count)
 
     tab
   })
@@ -3687,10 +3687,10 @@ server <- function(input, output, session) {
       ggplot2::geom_point(color = "steelblue", size = 3) +
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::labs(
-        title = paste("SF vs BSB Harvest Limits in", state_name),
-        x = "Black Sea Bass RHL",
-        y = "Summer Flounder RHL"
-      ) +
+        title = paste("Percentage change in SF (vertical) and BSB (horizontal) Recreational Harvest in", state_name),
+        x = "Change in BSB Harvest(%)",
+        y = "Change in SF Harvest (%)",
+        color="Change in Scup\nharvest (%)") +
       ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::theme_bw()
@@ -3735,7 +3735,7 @@ server <- function(input, output, session) {
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::ggtitle("Angler Satisfaction")+
       ggplot2::ylab("Angler Satisfaction ($M)")+
-      ggplot2::xlab("Percent difference of Harvest from SQ")+
+      ggplot2::xlab("Change in Harvest from SQ (%)")+
       ggplot2::theme(legend.position = "none")+
       ggplot2::facet_wrap(.~species)+
       ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
@@ -3792,7 +3792,7 @@ server <- function(input, output, session) {
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::ggtitle(paste("Number of Trips in", state_name)) +
       ggplot2::ylab("Predicted trips (N) millions") +
-      ggplot2::xlab("Percent difference of Harvest from SQ") +
+      ggplot2::xlab("Change in Harvest from SQ (%)")+
       ggplot2::theme(legend.position = "none") +
       ggplot2::facet_wrap(. ~ species) +
       ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
@@ -3851,7 +3851,7 @@ server <- function(input, output, session) {
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::ggtitle(paste("Discards in", state_name)) +
       ggplot2::ylab("Discards (million lbs)") +
-      ggplot2::xlab("Percent difference of Harvest from SQ") +
+      ggplot2::xlab("Change in Harvest from SQ (%)")+
       ggplot2::theme(legend.position = "none") +
       ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.1)) +
       ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = 0.1)) +
