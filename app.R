@@ -10,6 +10,7 @@ ui <- fluidPage(
   titlePanel("Recreational Fisheries Decision Support Tool"),
   tabsetPanel(
     tabPanel("Summary Page",
+             "This takes a few seconds to initialize",
              plotly::plotlyOutput(outputId = "summary_rhl_fig"),
              shiny::h2("Summary Table"), 
              DT::DTOutput(outputId = "summary_percdiff_table"),
