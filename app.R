@@ -3544,7 +3544,7 @@ server <- function(input, output, session) {
     perc_changes <- outputs() %>% 
       dplyr::filter(stringr::str_detect(filename, "SQ")) %>% 
       dplyr::group_by(state,filename, metric, mode, species) %>%
-      dplyr::summarise(value = median(value)) %>% 
+      dplyr::summarise(value = round(median(value),2)) %>% 
       dplyr::mutate(pca_reqs = dplyr::case_when(species == "sf" ~ .1, TRUE ~ .1), 
                     pca_reqs = dplyr::case_when(species == "bsb" ~ .1, TRUE ~ pca_reqs), 
                     pca_reqs = dplyr::case_when(species == "scup" ~ .1, TRUE ~ pca_reqs))
@@ -3571,7 +3571,7 @@ server <- function(input, output, session) {
       dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1) * 100) %>%
       dplyr::group_by(state,filename.x, species, metric) %>%
-      dplyr::summarise(median_pct_diff = median(pct_diff)) %>%
+      dplyr::summarise(median_pct_diff = round(median(pct_diff), 2)) %>%
       tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
 
 
@@ -3610,7 +3610,7 @@ server <- function(input, output, session) {
       dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state,filename.x, species, metric) %>%
-      dplyr::summarise(median_pct_diff = median(pct_diff)) %>%
+      dplyr::summarise(median_pct_diff = round(median(pct_diff),2)) %>%
       tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
 
     tab<- harv %>% 
@@ -3678,7 +3678,7 @@ server <- function(input, output, session) {
       dplyr::left_join(ref_pct, by = dplyr::join_by(species, state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state, filename.x, species, metric) %>%
-      dplyr::summarise(median_pct_diff = median(pct_diff), .groups = "drop") %>%
+      dplyr::summarise(median_pct_diff = round(median(pct_diff),2), .groups = "drop") %>%
       tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
     
     # Static ggplot
@@ -3713,7 +3713,7 @@ server <- function(input, output, session) {
       dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state,filename.x, species, metric) %>%
-      dplyr::summarise(median_pct_diff = median(pct_diff)) %>%
+      dplyr::summarise(median_pct_diff = round(median(pct_diff),2)) %>%
       dplyr::rename(filename = filename.x)
     #tidyr::pivot_wider(names_from = category, values_from = median_pct_diff)
     
@@ -3725,7 +3725,7 @@ server <- function(input, output, session) {
       # dplyr::summarise(Value = sum(as.numeric(value))) %>%
       dplyr::group_by(filename) %>%
       dplyr::mutate(value = value/1000000) %>% 
-      dplyr::summarise(CV = median(value),
+      dplyr::summarise(CV = round(median(value),2),
                        ci_lower = quantile(value, 0.05),
                        ci_upper = quantile(value, 0.95)) %>%
       left_join(harv)
@@ -3770,7 +3770,7 @@ server <- function(input, output, session) {
       dplyr::left_join(ref_pct, by = dplyr::join_by(species, state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state, filename.x, species, metric) %>%
-      dplyr::summarise(median_pct_diff = median(pct_diff), .groups = "drop") %>%
+      dplyr::summarise(median_pct_diff = round(median(pct_diff),2), .groups = "drop") %>%
       dplyr::rename(filename = filename.x)
     
     # Trips data
@@ -3783,7 +3783,7 @@ server <- function(input, output, session) {
       dplyr::group_by(filename) %>%
       dplyr::summarise(trips = median(value), .groups = "drop") %>%
       dplyr::left_join(harv, by = "filename") %>% 
-      dplyr::mutate(trips = trips/1000000)
+      dplyr::mutate(trips = round(trips/1000000,2))
     
     # Static plot
     p1 <- trips %>%
@@ -3829,7 +3829,7 @@ server <- function(input, output, session) {
       dplyr::left_join(ref_pct, by = dplyr::join_by(species, state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state, filename.x, species, metric) %>%
-      dplyr::summarise(median_keep_pct_diff = median(pct_diff), .groups = "drop") %>%
+      dplyr::summarise(median_keep_pct_diff = round(median(pct_diff),2), .groups = "drop") %>%
       dplyr::rename(filename = filename.x)
     
     # Discards
@@ -3842,7 +3842,7 @@ server <- function(input, output, session) {
       dplyr::group_by(state, filename, species) %>%
       dplyr::summarise(median_rel_weight = median(value), .groups = "drop") %>%
       dplyr::left_join(harv, by = c("state", "filename", "species")) %>% 
-      dplyr::mutate(median_rel_weight = median_rel_weight/1000000)
+      dplyr::mutate(median_rel_weight = round(median_rel_weight/1000000,2))
     
     # Static plot
     p1 <- disc %>%
