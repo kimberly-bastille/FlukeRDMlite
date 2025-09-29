@@ -46,3 +46,10 @@ Nearly all of the code is on github, however using the app requires a few extra 
 1. ``AppSetup.R`` -- see the AppSetupPlaceholder.R file to figure out how to set this up.
 2. A pair of google drive tokens. These tokens should have permissions to read and write to the files in AppSetup.R.  You can set these up yourself using the code in AppSetupPlaceholder.R
 3. A csv containing authorized email addresses. These are on google drive, but you might want to store it in a csv to minimize hitting googledrive.
+
+# Back-end
+
+This app collects regulations from users. In order to run regulations, the regulations must be run on a different computer. This can be done locally for a small number of policies or on the NEFSC container.
+
+Results must then be transferred back to the "Lite" app and re-deployed to the cloud. 
+
