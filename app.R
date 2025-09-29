@@ -3533,15 +3533,17 @@ server <- function(input, output, session) {
   outputs <- function(){
     flist <- list.files(path = here::here("output/"), pattern = "\\.csv$", full.names = TRUE)
     
+    read_cols<-c("metric","species","value", "mode","state","draw","model")
+    read_cols_types<-c("c","c","d","c","c","i","c")
     all_data <- flist %>%
       set_names(flist) %>%  # Optional: keep file names for reference
-      purrr::map_dfr(readr::read_csv, .id = "filename") %>% 
+      purrr::map_dfr(readr::read_csv, .id = "filename", col_select=all_of(read_cols), col_types=read_cols_types) %>% 
       dplyr::mutate(filename = stringr::str_extract(filename, "(?<=output_).+?(?=_202)"))
-    
+    return(all_data)
   }
   
   perc_changes <- function(){
-    perc_changes <- outputs() %>% 
+    perc_changes <- all_data %>% 
       dplyr::filter(stringr::str_detect(filename, "SQ")) %>% 
       dplyr::group_by(state,filename, metric, mode, species) %>%
       dplyr::summarise(value = round(median(value),2)) %>% 
@@ -3558,15 +3560,18 @@ server <- function(input, output, session) {
       purrr::map_dfr(readr::read_csv)
   }
   
+  # get all_data
+  all_data<-outputs()
+  
   # Summary
   output$summary_rhl_fig<- plotly::renderPlotly({
 
-    ref_pct <- outputs() %>% #all_data %>%
+    ref_pct <- all_data %>% #all_data %>%
       dplyr::filter(metric == "keep_weight" & mode == "all modes" & model == "SQ") %>%
       dplyr::mutate(ref_value = value) %>%
       dplyr::select(filename, species, state, draw, ref_value)
 
-    harv <- outputs() %>% #all_data %>%
+    harv <- all_data %>% #all_data %>%
       dplyr::filter(metric == "keep_weight" & mode == "all modes") %>%
       dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1) * 100) %>%
@@ -3600,12 +3605,12 @@ server <- function(input, output, session) {
 
   output$summary_percdiff_table <- DT::renderDT({
 
-    ref_pct <- outputs() %>% #all_data %>%
+    ref_pct <- all_data %>% #all_data %>%
       dplyr::filter(metric == "keep_weight" &  mode == "all modes" & model == "SQ") %>%
       dplyr::mutate(ref_value = value) %>%
       dplyr::select(filename, species, state, draw, ref_value)
     
-    harv <- outputs() %>% #all_data %>%
+    harv <- all_data %>% #all_data %>%
       dplyr::filter(metric == "keep_weight" & mode == "all modes") %>%
       dplyr::left_join(ref_pct, by = join_by(species,  state, draw)) %>%
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
@@ -3867,190 +3872,190 @@ server <- function(input, output, session) {
   
   ### MA
   output$ma_rhl_fig<- plotly::renderPlotly({
-    rhl_ma <- rhl_fig(outputs(), "MA")
+    rhl_ma <- rhl_fig(all_data, "MA")
     rhl_ma
   })
 
   output$ma_CV_fig<- plotly::renderPlotly({
-    cv_ma <- cv_fig(outputs(), "MA")
+    cv_ma <- cv_fig(all_data, "MA")
     cv_ma
   })
 
   output$ma_trips_fig<- plotly::renderPlotly({
-    trips_ma <- trips_fig(outputs(), "MA")
+    trips_ma <- trips_fig(all_data, "MA")
     trips_ma
   })
 
   output$ma_discards_fig <- plotly::renderPlotly({
-    discards_ma <- discards_fig(outputs(), "MA")
+    discards_ma <- discards_fig(all_data, "MA")
     discards_ma
   })
 
   ### RI
   output$ri_rhl_fig<- plotly::renderPlotly({
-    rhl_ri <- rhl_fig(outputs(), "RI")
+    rhl_ri <- rhl_fig(all_data, "RI")
     rhl_ri
   })
   
   output$ri_CV_fig<- plotly::renderPlotly({
-    cv_ri <- cv_fig(outputs(), "RI")
+    cv_ri <- cv_fig(all_data, "RI")
     cv_ri
   })
   
   output$ri_trips_fig<- plotly::renderPlotly({
-    trips_ri <- trips_fig(outputs(), "RI")
+    trips_ri <- trips_fig(all_data, "RI")
     trips_ri
   })
   
   output$ri_discards_fig <- plotly::renderPlotly({
-    discards_ri <- discards_fig(outputs(), "RI")
+    discards_ri <- discards_fig(all_data, "RI")
     discards_ri
   })
   
   ### CT
   output$ct_rhl_fig<- plotly::renderPlotly({
-    rhl_ct <- rhl_fig(outputs(), "CT")
+    rhl_ct <- rhl_fig(all_data, "CT")
     rhl_ct
   })
   
   output$ct_CV_fig<- plotly::renderPlotly({
-    cv_ct <- cv_fig(outputs(), "CT")
+    cv_ct <- cv_fig(all_data, "CT")
     cv_ct
   })
   
   output$ct_trips_fig<- plotly::renderPlotly({
-    trips_ct <- trips_fig(outputs(), "CT")
+    trips_ct <- trips_fig(all_data, "CT")
     trips_ct
   })
   
   output$ct_discards_fig <- plotly::renderPlotly({
-    discards_ct <- discards_fig(outputs(), "CT")
+    discards_ct <- discards_fig(all_data, "CT")
     discards_ct
   })
   
   ### NY
   output$ny_rhl_fig<- plotly::renderPlotly({
-    rhl_ny <- rhl_fig(outputs(), "NY")
+    rhl_ny <- rhl_fig(all_data, "NY")
     rhl_ny
   })
   
   output$ny_CV_fig<- plotly::renderPlotly({
-    cv_ny <- cv_fig(outputs(), "NY")
+    cv_ny <- cv_fig(all_data, "NY")
     cv_ny
   })
   
   output$ny_trips_fig<- plotly::renderPlotly({
-    trips_ny <- trips_fig(outputs(), "NY")
+    trips_ny <- trips_fig(all_data, "NY")
     trips_ny
   })
   
   output$ny_discards_fig <- plotly::renderPlotly({
-    discards_ny <- discards_fig(outputs(), "NY")
+    discards_ny <- discards_fig(all_data, "NY")
     discards_ny
   })
   
   
   ### NJ
   output$nj_rhl_fig<- plotly::renderPlotly({
-    rhl_nj <- rhl_fig(outputs(), "NJ")
+    rhl_nj <- rhl_fig(all_data, "NJ")
     rhl_nj
   })
   
   output$nj_CV_fig<- plotly::renderPlotly({
-    cv_nj <- cv_fig(outputs(), "NJ")
+    cv_nj <- cv_fig(all_data, "NJ")
     cv_nj
   })
   
   output$nj_trips_fig<- plotly::renderPlotly({
-    trips_nj <- trips_fig(outputs(), "NJ")
+    trips_nj <- trips_fig(all_data, "NJ")
     trips_nj
   })
   
   output$nj_discards_fig <- plotly::renderPlotly({
-    discards_nj <- discards_fig(outputs(), "NJ")
+    discards_nj <- discards_fig(all_data, "NJ")
     discards_nj
   })
   
   ### DE
   output$de_rhl_fig<- plotly::renderPlotly({
-    rhl_de <- rhl_fig(outputs(), "DE")
+    rhl_de <- rhl_fig(all_data, "DE")
     rhl_de
   })
   
   output$de_CV_fig<- plotly::renderPlotly({
-    cv_de <- cv_fig(outputs(), "DE")
+    cv_de <- cv_fig(all_data, "DE")
     cv_de
   })
   
   output$de_trips_fig<- plotly::renderPlotly({
-    trips_de <- trips_fig(outputs(), "DE")
+    trips_de <- trips_fig(all_data, "DE")
     trips_de
   })
   
   output$de_discards_fig <- plotly::renderPlotly({
-    discards_de <- discards_fig(outputs(), "DE")
+    discards_de <- discards_fig(all_data, "DE")
     discards_de
   })
   
   ### MD
   output$md_rhl_fig<- plotly::renderPlotly({
-    rhl_md <- rhl_fig(outputs(), "MD")
+    rhl_md <- rhl_fig(all_data, "MD")
     rhl_md
   })
   
   output$md_CV_fig<- plotly::renderPlotly({
-    cv_md <- cv_fig(outputs(), "MD")
+    cv_md <- cv_fig(all_data, "MD")
     cv_md
   })
   
   output$md_trips_fig<- plotly::renderPlotly({
-    trips_md <- trips_fig(outputs(), "MD")
+    trips_md <- trips_fig(all_data, "MD")
     trips_md
   })
   
   output$md_discards_fig <- plotly::renderPlotly({
-    discards_md <- discards_fig(outputs(), "MD")
+    discards_md <- discards_fig(all_data, "MD")
     discards_md
   })
   
   ### VA
   output$va_rhl_fig<- plotly::renderPlotly({
-    rhl_va <- rhl_fig(outputs(), "VA")
+    rhl_va <- rhl_fig(all_data, "VA")
     rhl_va
   })
   
   output$va_CV_fig<- plotly::renderPlotly({
-    cv_va <- cv_fig(outputs(), "VA")
+    cv_va <- cv_fig(all_data, "VA")
     cv_va
   })
   
   output$va_trips_fig<- plotly::renderPlotly({
-    trips_va <- trips_fig(outputs(), "VA")
+    trips_va <- trips_fig(all_data, "VA")
     trips_va
   })
   
   output$va_discards_fig <- plotly::renderPlotly({
-    discards_va <- discards_fig(outputs(), "VA")
+    discards_va <- discards_fig(all_data, "VA")
     discards_va
   })
   ### NC
   output$nc_rhl_fig<- plotly::renderPlotly({
-    rhl_nc <- rhl_fig(outputs(), "NC")
+    rhl_nc <- rhl_fig(all_data, "NC")
     rhl_nc
   })
   
   output$nc_CV_fig<- plotly::renderPlotly({
-    cv_nc <- cv_fig(outputs(), "NC")
+    cv_nc <- cv_fig(all_data, "NC")
     cv_nc
   })
   
   output$nc_trips_fig<- plotly::renderPlotly({
-    trips_nc <- trips_fig(outputs(), "NC")
+    trips_nc <- trips_fig(all_data, "NC")
     trips_nc
   })
   
   output$nc_discards_fig <- plotly::renderPlotly({
-    discards_nc <- discards_fig(outputs(), "NC")
+    discards_nc <- discards_fig(all_data, "NC")
     discards_nc
   })
   
