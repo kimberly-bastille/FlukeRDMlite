@@ -22,6 +22,21 @@ The second thing users see is a summary table if shows the median percentage cha
 The third thing users see is a selection tab, where they can focus in on a state.  For every state, users can see a more detailed view of the first image (Summer Flounder and Black Sea Bass changes in Recreational Harvest relative to Status Quo, in percentage terms).  They can also see total angler satisfaction, total trips, and total discards of each species, all plotted against the "Change in Harvest from Status Quo" for each species.
 
 
+# Regulation Selection
+
+The second tab on the app is a regulation selection page. It is very similar to the interface users had last year. We are asking people to name their policy with a short name (initials and a number are great), input their name, and input their email address.  
+
+Use the tick boxes to mark the states that they want to examine.  
+
+The regulations are currently pre-populated with the Status Quo.
+
+Use the calendar sliders, ruler, and boxes to select the open seasons, size limits, and possession limits. 
+
+Policies can be run for all modes or differentiated by "For-Hire, Private, and Shore."  
+
+Users can add up to 1 additional season per species.
+
+If you "un-tick" a state and then re-select it, the app will reset all the sliders to the defaults (Status Quo).
 
 
 # Reproducibility and Deploying
