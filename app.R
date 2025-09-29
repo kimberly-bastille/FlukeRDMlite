@@ -3584,7 +3584,12 @@ server <- function(input, output, session) {
       #ggplot2::geom_hline(data = pca_sf, ggplot2::aes(yintercept = pca_reqs), color = "black")+
       #ggplot2::geom_vline(data = pca_bsb, ggplot2::aes(xintercept = pca_reqs), color = "black", linetype = "dashed")+
       ggplot2::facet_wrap(~ state) +
-      ggplot2::labs(title = "SF vs BSB Harvest Limits by state",x = "Black Sea Bass RHL",y = "Summer Flounder RHL") +
+      ggplot2::scale_x_continuous(labels = function(x) format(round(x, 2), nsmall = 0)) +
+      ggplot2::scale_y_continuous(labels = function(x) format(round(x, 2), nsmall = 0))
+      ggplot2::labs(title = "Percentage change in SF (vertical) and BSB (horizontal) Recreational Harvest By State",
+                    x = "Change in BSB Harvest(%)",
+                    y = "Change in SF Harvest (%)",
+                    color="Change in Scup\nharvest (%)") +
       #ggplot2::scale_color_gradient2( low = "blue", mid = "gray", high = "red",  midpoint = 0, limits = c(-10, 10)) + 
       ggplot2::theme_bw()
 
