@@ -3577,11 +3577,12 @@ server <- function(input, output, session) {
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1) * 100) %>%
       dplyr::group_by(state,filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = round(median(pct_diff), 2)) %>%
-      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
+      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff) %>% 
+      dplyr::rename(Run_Name = filename.x)
 
 
     harv2 <- harv %>%
-      ggplot2::ggplot(ggplot2::aes(x = bsb, y = sf, label = filename.x, color = scup)) +
+      ggplot2::ggplot(ggplot2::aes(x = bsb, y = sf, label = Run_Name, color = scup)) +
       ggplot2::geom_point( size = 3) +
       ggplot2::geom_text(color = "black", vjust = -0.5, size = 3) +
       #ggplot2::geom_hline(data = pca_sf, ggplot2::aes(yintercept = pca_reqs), color = "black")+
@@ -3684,11 +3685,12 @@ server <- function(input, output, session) {
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state, filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = round(median(pct_diff),2), .groups = "drop") %>%
-      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff)
+      tidyr::pivot_wider(names_from = species, values_from = median_pct_diff) %>% 
+      dplyr::rename(Run_Name = filename.x)
     
     # Static ggplot
     harv2 <- harv %>%
-      ggplot2::ggplot(ggplot2::aes(x = bsb, y = sf, label = filename.x, color = scup)) +
+      ggplot2::ggplot(ggplot2::aes(x = bsb, y = sf, label = Run_Name, color = scup)) +
       ggplot2::geom_point(size = 3) +
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::labs(
@@ -3776,7 +3778,7 @@ server <- function(input, output, session) {
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state, filename.x, species, metric) %>%
       dplyr::summarise(median_pct_diff = round(median(pct_diff),2), .groups = "drop") %>%
-      dplyr::rename(filename = filename.x)
+      dplyr::rename(Run_Name = filename.x)
     
     # Trips data
     trips <- data %>%
@@ -3787,12 +3789,13 @@ server <- function(input, output, session) {
       ) %>%
       dplyr::group_by(filename) %>%
       dplyr::summarise(trips = median(value), .groups = "drop") %>%
-      dplyr::left_join(harv, by = "filename") %>% 
+      dplyr::rename(Run_Name = filename) %>% 
+      dplyr::left_join(harv, by = "Run_Name") %>% 
       dplyr::mutate(trips = round(trips/1000000,2))
     
     # Static plot
     p1 <- trips %>%
-      ggplot2::ggplot(ggplot2::aes(x = median_pct_diff, y = trips, label = filename)) +
+      ggplot2::ggplot(ggplot2::aes(x = median_pct_diff, y = trips, label = Run_Name)) +
       ggplot2::geom_point() +
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::ggtitle(paste("Number of Trips in", state_name)) +
@@ -3835,7 +3838,7 @@ server <- function(input, output, session) {
       dplyr::mutate(pct_diff = (value - ref_value) / (ref_value+1)  * 100) %>%
       dplyr::group_by(state, filename.x, species, metric) %>%
       dplyr::summarise(median_keep_pct_diff = round(median(pct_diff),2), .groups = "drop") %>%
-      dplyr::rename(filename = filename.x)
+      dplyr::rename(Run_Name = filename.x)
     
     # Discards
     disc <- data %>%
@@ -3846,12 +3849,13 @@ server <- function(input, output, session) {
       ) %>%
       dplyr::group_by(state, filename, species) %>%
       dplyr::summarise(median_rel_weight = median(value), .groups = "drop") %>%
-      dplyr::left_join(harv, by = c("state", "filename", "species")) %>% 
+      dplyr::rename(Run_Name = filename) %>% 
+      dplyr::left_join(harv, by = c("state", "Run_Name", "species")) %>% 
       dplyr::mutate(median_rel_weight = round(median_rel_weight/1000000,2))
     
     # Static plot
     p1 <- disc %>%
-      ggplot2::ggplot(ggplot2::aes(x = median_keep_pct_diff, y = median_rel_weight, label = filename)) +
+      ggplot2::ggplot(ggplot2::aes(x = median_keep_pct_diff, y = median_rel_weight, label = Run_Name)) +
       ggplot2::geom_point() +
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::ggtitle(paste("Discards in", state_name)) +
