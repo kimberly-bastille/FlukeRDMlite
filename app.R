@@ -3684,7 +3684,7 @@ server <- function(input, output, session) {
     # Static ggplot
     harv2 <- harv %>%
       ggplot2::ggplot(ggplot2::aes(x = bsb, y = sf, label = filename.x, color = scup)) +
-      ggplot2::geom_point(color = "steelblue", size = 3) +
+      ggplot2::geom_point(size = 3) +
       ggplot2::geom_text(vjust = -0.5, size = 3) +
       ggplot2::labs(
         title = paste("Percentage change in SF (vertical) and BSB (horizontal) Recreational Harvest in", state_name),
