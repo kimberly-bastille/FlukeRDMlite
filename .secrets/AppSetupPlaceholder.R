@@ -2,10 +2,26 @@
 # I don't want to put the DST user list of emails into the repository.
 # I don't want to put the google drive paths into the repository
 
+#########################################################################
+####################RUN this once to setup your token####################
+#########################################################################
+# options(gargle_oauth_cache = ".secrets")
+# 
+# library(googledrive) 
+# library(googlesheets4)
+# 
+# drive_auth(email = "your-email@gmail.com")
+# gs4_auth(email = "your-email@gmail.com")
+# 
+# # Verify tokens were cached
+# list.files(".secrets/")
+#
+#########################################################################
+####################END of token setup ##################################
+#########################################################################
 
 
-#library(googledrive)
-#library(googlesheets4)
+
 drive_auth(cache = ".secrets", email = TRUE)
 gs4_auth(cache = ".secrets", email = TRUE)
 
