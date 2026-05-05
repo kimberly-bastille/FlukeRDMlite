@@ -24,7 +24,10 @@ states <- c("MA","RI","CT","NY","NJ","DE","MD","VA","NC")
 #### Start UI ####
 ui <- fluidPage(
   useShinyjs(),
-  titlePanel("Recreational Fisheries Decision Support Tool for Summer Flounder, Scup, and Black Sea Bass"),
+  titlePanel(div(
+               h1("Recreational Fisheries Decision Support Tool for Summer Flounder, Scup, and Black Sea Bass"),
+               h4("For display only - does NOT run model", style = "color: grey;")
+             )),
   tabsetPanel(
     tabPanel("Summary Page",
              "This page summarizes results of previous model runs. It takes about 60 seconds to initialize the first time that you use the app.",
