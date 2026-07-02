@@ -178,7 +178,8 @@ ui <- fluidPage(
                     column(width = 4, tableOutput("coastwide_cv")),
                     column(width = 4, tableOutput("coastwide_trips"))
                   ),
-                  tableOutput("coastwide_discards")
+                  tableOutput("coastwide_discards"), 
+                  DT::DTOutput("results_regs_table")
                 )
               ))
   ))
@@ -325,6 +326,72 @@ server <- function(input, output, session) {
         TRUE ~ TRUE
       ))
   }
+  
+  
+  selected_files <- eventReactive(input$calculate, {
+    selected_files <- sapply(states, function(st){ input[[paste0("policy_", st)]] })
+    selected_files[selected_files != "" & selected_files != "none"]
+  })
+  
+  selected_run_names <- eventReactive(input$calculate, {
+    files <- selected_files()
+    if (length(files) == 0) return(data.frame(state = character(0), run_name = character(0)))
+    
+    # Every run name that's ever been saved, per state — used to reverse-match
+    # whatever's embedded in the output/ filename, regardless of how the state
+    # code and run name are joined together (underscore, hyphen, nothing, etc.)
+    known <- regs_data() %>% dplyr::distinct(state, run_name)
+    
+    purrr::map2_dfr(names(files), unname(files), function(st, f) {
+      display <- f |>
+        stringr::str_remove("^output_") |>
+        stringr::str_remove("_[0-9]{8}_[0-9]{6}\\.csv$")
+      
+      candidates <- known %>% dplyr::filter(state == st) %>% dplyr::pull(run_name)
+      
+      # Prefer the longest known run_name that the filename ends with, in case
+      # one saved run_name happens to be a substring of another
+      hits <- candidates[stringr::str_ends(display, stringr::fixed(candidates))]
+      run_name <- if (length(hits) > 0) hits[which.max(nchar(hits))] else NA_character_
+      
+      data.frame(state = st, run_name = run_name, stringsAsFactors = FALSE)
+    }) %>%
+      dplyr::filter(!is.na(run_name))
+  })
+  
+  output$results_regs_table <- DT::renderDT({
+    req(selected_run_names())
+    sel <- selected_run_names()
+    req(nrow(sel) > 0)
+    
+    df <- regs_data() %>%
+      dplyr::inner_join(sel, by = c("run_name", "state"))
+    
+    validate(
+      need(nrow(df) > 0, "No saved regulations found for the selected policies.")
+    )
+    
+    df %>%
+      tidyr::separate(input, into = c("species", "season", "measure"), sep = "_") %>%
+      dplyr::mutate(season = stringr::str_remove(season, "^seas")) %>%
+      tidyr::extract(species, into = c("species", "state2", "mode"), regex = "([^a-z]+)([a-z]+)(.*)") %>%
+      dplyr::select(-state2) %>%
+      dplyr::group_by(run_name, state, species, mode, season) %>%
+      tidyr::pivot_wider(names_from = measure, values_from = value) %>%
+      dplyr::filter(!bag == 0) %>%
+      dplyr::mutate(season2 = paste0(op, " - ", cl)) %>%
+      dplyr::group_by(run_name, state, species, mode) %>%
+      dplyr::summarise(
+        bag    = paste(bag, collapse = ","),
+        len    = paste(len, collapse = ","),
+        season = paste(season2, collapse = ","),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        mode   = if_else(mode == "", "All modes", mode),
+        season = gsub("2025-", "", season)
+      )
+  })
   
   coastwide_keep <- reactive({
     req(combined_data(), sq_data())
