@@ -8,13 +8,27 @@ library(dplyr)
 #########################################################################
 files <- list.files("output", pattern = "\\.csv$", full.names = FALSE)
 
-# Extract state abbreviation
+# Output files are named: output_<STATE>_<policy identifier>_<YYYYMMDD>_<HHMMSS>.csv
+# e.g. output_MA_Analysis4_20260203_201914.csv
 file_df <- data.frame(
   file = files,
-  state = stringr::str_extract(files, "(?<=output_)[A-Z]{2}"),
-  display = files |>
-    stringr::str_remove("^output_") |>
+  state = stringr::str_extract(files, "(?<=^output_)[A-Z]{2}"),
+  policy = files |>
+    stringr::str_remove("^output_[A-Z]{2}_") |>
     stringr::str_remove("_[0-9]{8}_[0-9]{6}\\.csv$")
+)
+
+regs_files <- list.files("saved_regs", pattern = "\\.csv$", full.names = FALSE)
+
+# Regs files are named: regs_<policy identifier>.csv - one file covers every
+# state included in that run (state lives in a COLUMN inside the file, not
+# in the filename). Any trailing timestamp is stripped too, just in case.
+regs_file_df <- data.frame(
+  file = regs_files,
+  policy = regs_files |>
+    stringr::str_remove("^regs_") |>
+    stringr::str_remove("\\.csv$") |>
+    stringr::str_remove("_[0-9]{8}_[0-9]{6}$")
 )
 
 #List of states
@@ -178,7 +192,8 @@ ui <- fluidPage(
                     column(width = 4, tableOutput("coastwide_cv")),
                     column(width = 4, tableOutput("coastwide_trips"))
                   ),
-                  tableOutput("coastwide_discards")
+                  tableOutput("coastwide_discards"), 
+                  DT::DTOutput("coastwide_regulations")
                 )
               ))
   ))
@@ -249,36 +264,75 @@ server <- function(input, output, session) {
   
   # Results tab
   ###########################################################
+  # One dropdown per state (input$policy_<state>). The VALUE stored is the
+  # policy identifier itself (e.g. "Analysis4"), not a raw filename, since
+  # that identifier is what links an output file to its regs file. Choices
+  # are driven off file_df because output files are per-state; a state's
+  # dropdown only lists policies that actually have an output run for that
+  # state.
   lapply(states, function(st){
-    state_files <- file_df |> filter(state == st)
-    choices <- c(
-      "No file selected" = "",
-      "No file selected " = "none",
-      setNames(state_files$file, state_files$display)
-    )
-    updateSelectInput(session, paste0("policy_", st), choices = choices, selected = "")
+    observe({
+      state_policies <- file_df |>
+        dplyr::filter(state == st) |>
+        dplyr::distinct(policy) |>
+        dplyr::pull(policy)
+
+      choices <- c(
+        "No file selected" = "",
+        "No file selected " = "none",
+        setNames(state_policies, state_policies)
+      )
+      updateSelectInput(session, paste0("policy_", st), choices = choices, selected = "")
+    })
   })
-  
-  selected_files <- eventReactive(input$calculate, {
-    selected_files <- sapply(states, function(st){ input[[paste0("policy_", st)]] })
-    selected_files[selected_files != "" & selected_files != "none"]
+
+  # Named vector: names = state, values = the policy identifier picked for that state
+  selected_policies <- eventReactive(input$calculate, {
+    selected_policies <- sapply(states, function(st){ input[[paste0("policy_", st)]] })
+    selected_policies[selected_policies != "" & selected_policies != "none"]
   })
-  
+
   combined_data <- eventReactive(input$calculate, {
-    files <- selected_files()
-    files |>
-      lapply(function(f){
-        read.csv(file.path("output", f)) %>%
-          dplyr::mutate(
-            model  = if_else(model == "Lou_SQ", "SQ", model),
-            metric = case_when(
-              metric == "change_CS"   ~ "CV",
-              metric == "n_trips_alt" ~ "predicted_trips",
-              TRUE ~ metric
-            )
+    sel <- selected_policies()
+
+    purrr::imap(sel, function(policy, st){
+      f <- file_df |>
+        dplyr::filter(state == st, policy == !!policy) |>
+        dplyr::pull(file)
+
+      if (length(f) == 0) return(NULL)
+
+      read.csv(file.path("output", f[1])) %>%
+        dplyr::mutate(
+          model  = if_else(model == "Lou_SQ", "SQ", model),
+          metric = case_when(
+            metric == "change_CS"   ~ "CV",
+            metric == "n_trips_alt" ~ "predicted_trips",
+            TRUE ~ metric
           )
-      }) |>
-      dplyr::bind_rows() 
+        )
+    }) |>
+      purrr::compact() |>
+      dplyr::bind_rows()
+  })
+
+  # A single regs file covers every state in that policy run, so we look it
+  # up once per selected state and then keep only that state's rows.
+  combined_regs_data <- eventReactive(input$calculate, {
+    sel <- selected_policies()
+
+    purrr::imap(sel, function(policy, st){
+      f <- regs_file_df |>
+        dplyr::filter(policy == !!policy) |>
+        dplyr::pull(file)
+
+      if (length(f) == 0) return(NULL)
+
+      read.csv(file.path("saved_regs", f[1])) %>%
+        dplyr::filter(state == st)
+    }) |>
+      purrr::compact() |>
+      dplyr::bind_rows()
   })
   
   sq_data <- eventReactive(input$calculate, {
@@ -408,10 +462,37 @@ server <- function(input, output, session) {
       )
   })
   
+  coastwide_regulations <- reactive({
+    req(combined_regs_data)
+    
+    combined_regs_data() %>% 
+      tidyr::separate(input, into = c("species","season","measure"), sep = "_") %>%
+      dplyr::mutate(season = stringr::str_remove(season, "^seas")) %>%
+      tidyr::extract(species, into = c("species","state2","mode"), regex = "([^a-z]+)([a-z]+)(.*)") %>%
+      dplyr::select(-state2) %>%
+      dplyr::group_by(run_name, state, species, mode, season) %>%
+      tidyr::pivot_wider(names_from = measure, values_from = value) %>%
+      dplyr::filter(!bag == 0) %>%
+      dplyr::mutate(season2 = paste0(op, " - ", cl)) %>%
+      dplyr::group_by(run_name, state, species, mode) %>%
+      dplyr::summarise(bag = paste(bag, collapse=","), len = paste(len, collapse=","),
+                       season = paste(season2, collapse=","), .groups = "drop") %>%
+      dplyr::mutate(mode   = if_else(mode == "", "All modes", mode),
+                    season = gsub("2026-", "", season), 
+                    season = gsub("2025-", "", season)) %>% 
+      dplyr::rename(
+        Policy       = run_name,
+        `bag limit`  = bag,
+        `size limit` = len
+      )
+  })
+  
+  
   output$coastwide_keep     <- renderTable({ coastwide_keep() })
   output$coastwide_cv       <- renderTable({ coastwide_cv() })
   output$coastwide_discards <- renderTable({ coastwide_discards() })
   output$coastwide_trips    <- renderTable({ coastwide_trips() })
+  output$coastwide_regulations <- DT::renderDT({ coastwide_regulations() })
   
   #####################################################################
   
