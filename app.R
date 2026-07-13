@@ -475,8 +475,9 @@ server <- function(input, output, session) {
       dplyr::filter(!bag == 0) %>%
       dplyr::mutate(season2 = paste0(op, " - ", cl)) %>%
       dplyr::group_by(run_name, state, species, mode) %>%
-      dplyr::summarise(bag = paste(bag, collapse=","), len = paste(len, collapse=","),
-                       season = paste(season2, collapse=","), .groups = "drop") %>%
+      dplyr::summarise(bag = paste(bag, collapse = ",<br>"), 
+                       len = paste(len, collapse = ",<br>"),
+                       season = paste(season2, collapse = ",<br>"), .groups = "drop") %>%
       dplyr::mutate(mode   = if_else(mode == "", "All modes", mode),
                     season = gsub("2026-", "", season), 
                     season = gsub("2025-", "", season)) %>% 
@@ -492,7 +493,7 @@ server <- function(input, output, session) {
   output$coastwide_cv       <- renderTable({ coastwide_cv() })
   output$coastwide_discards <- renderTable({ coastwide_discards() })
   output$coastwide_trips    <- renderTable({ coastwide_trips() })
-  output$coastwide_regulations <- DT::renderDT({ coastwide_regulations() })
+  output$coastwide_regulations <- DT::renderDT({ coastwide_regulations()}, escape = FALSE)
   
   #####################################################################
   
