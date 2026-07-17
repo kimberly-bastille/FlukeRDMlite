@@ -401,10 +401,13 @@ server <- function(input, output, session) {
                                        (policy_total - sq_total) / sq_total * 100)) %>%
       group_by(species, mode) %>%
       summarise(
-        `Median Harvest Weight (lbs)` = format(round(median(policy_total, na.rm = TRUE), 0), big.mark=","),
-        `Percent Change from SQ`      = sprintf("%.2f%%", median(pct_change_draw, na.rm = TRUE)),
+        `median harvest weight (lbs)` = format(round(median(policy_total, na.rm = TRUE), 0), big.mark=","),
+        `percent change from SQ`      = sprintf("%.2f%%", median(pct_change_draw, na.rm = TRUE)),
         .groups = "drop"
-      )
+      ) %>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_cv <- reactive({
@@ -417,9 +420,12 @@ server <- function(input, output, session) {
       summarise(cv_total = sum(value), .groups = "drop") %>%
       group_by(mode) %>%
       summarise(
-        `Angler Satisfaction ($)` = format(round(median(cv_total, na.rm = TRUE), 0), big.mark=","),
+        `angler satisfaction ($)` = format(round(median(cv_total, na.rm = TRUE), 0), big.mark=","),
         .groups = "drop"
-      )
+      )%>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_discards <- reactive({
@@ -441,10 +447,13 @@ server <- function(input, output, session) {
       dplyr::arrange(species, mode) %>%
       group_by(species, mode) %>%
       summarise(
-        `Median Discard weight (lbs)`      = format(round(median(`Median Discard weight (lbs)`,      na.rm=TRUE), 0), big.mark=","),
-        `Median Dead discard weight (lbs)` = format(round(median(`Median Dead discard weight (lbs)`, na.rm=TRUE), 0), big.mark=","),
+        `median discard weight (lbs)`      = format(round(median(`Median Discard weight (lbs)`,      na.rm=TRUE), 0), big.mark=","),
+        `median dead discard weight (lbs)` = format(round(median(`Median Dead discard weight (lbs)`, na.rm=TRUE), 0), big.mark=","),
         .groups = "drop"
-      )
+      )%>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_trips <- reactive({
@@ -457,9 +466,12 @@ server <- function(input, output, session) {
       summarise(trips_total = sum(value, na.rm = TRUE), .groups = "drop") %>%
       group_by(mode) %>%
       summarise(
-        `Predicted trips` = format(round(median(trips_total, na.rm = TRUE), 0), big.mark=","),
+        `predicted trips` = format(round(median(trips_total, na.rm = TRUE), 0), big.mark=","),
         .groups = "drop"
-      )
+      )%>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_regulations <- reactive({
@@ -473,19 +485,28 @@ server <- function(input, output, session) {
       dplyr::group_by(run_name, state, species, mode, season) %>%
       tidyr::pivot_wider(names_from = measure, values_from = value) %>%
       dplyr::filter(!bag == 0) %>%
-      dplyr::mutate(season2 = paste0(op, " - ", cl)) %>%
+      dplyr::mutate(
+        op = lubridate::ymd(op),
+        cl = lubridate::ymd(cl),
+        op_formatted = trimws(format(op, "%b %e")),
+        cl_formatted = trimws(format(cl, "%b %e"))
+      ) %>% 
+      dplyr::mutate(season2 = paste0(op_formatted, " - ", cl_formatted)) %>%
       dplyr::group_by(run_name, state, species, mode) %>%
       dplyr::summarise(bag = paste(bag, collapse = ",<br>"), 
                        len = paste(len, collapse = ",<br>"),
                        season = paste(season2, collapse = ",<br>"), .groups = "drop") %>%
-      dplyr::mutate(mode   = if_else(mode == "", "All modes", mode),
-                    season = gsub("2026-", "", season), 
-                    season = gsub("2025-", "", season)) %>% 
+      dplyr::mutate(mode   = if_else(mode == "", "All modes", mode)) %>% #,
+                    #season = gsub("2026-", "", season), 
+                    #season = gsub("2025-", "", season)) %>% 
       dplyr::rename(
-        Policy       = run_name,
+        policy       = run_name,
         `bag limit`  = bag,
         `size limit` = len
-      )
+      )%>% 
+      mutate(mode = recode(mode, "FH" = "for hire", 
+                           "PR" = "private", 
+                           "SH" = "shore"))
   })
   
   
@@ -4461,6 +4482,7 @@ server <- function(input, output, session) {
   
   ####  Storing Inputs for decoupled model ####
   
+  #### regulations
   # regulations <- observeEvent(input$runmeplease,{
   #   library(httr)
   #   library(jsonlite)
