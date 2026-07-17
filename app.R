@@ -401,8 +401,8 @@ server <- function(input, output, session) {
                                        (policy_total - sq_total) / sq_total * 100)) %>%
       group_by(species, mode) %>%
       summarise(
-        `Median Harvest Weight (lbs)` = format(round(median(policy_total, na.rm = TRUE), 0), big.mark=","),
-        `Percent Change from SQ`      = sprintf("%.2f%%", median(pct_change_draw, na.rm = TRUE)),
+        `median harvest weight (lbs)` = format(round(median(policy_total, na.rm = TRUE), 0), big.mark=","),
+        `percent change from SQ`      = sprintf("%.2f%%", median(pct_change_draw, na.rm = TRUE)),
         .groups = "drop"
       )
   })
@@ -417,7 +417,7 @@ server <- function(input, output, session) {
       summarise(cv_total = sum(value), .groups = "drop") %>%
       group_by(mode) %>%
       summarise(
-        `Angler Satisfaction ($)` = format(round(median(cv_total, na.rm = TRUE), 0), big.mark=","),
+        `angler satisfaction ($)` = format(round(median(cv_total, na.rm = TRUE), 0), big.mark=","),
         .groups = "drop"
       )
   })
@@ -441,8 +441,8 @@ server <- function(input, output, session) {
       dplyr::arrange(species, mode) %>%
       group_by(species, mode) %>%
       summarise(
-        `Median Discard weight (lbs)`      = format(round(median(`Median Discard weight (lbs)`,      na.rm=TRUE), 0), big.mark=","),
-        `Median Dead discard weight (lbs)` = format(round(median(`Median Dead discard weight (lbs)`, na.rm=TRUE), 0), big.mark=","),
+        `median discard weight (lbs)`      = format(round(median(`Median Discard weight (lbs)`,      na.rm=TRUE), 0), big.mark=","),
+        `median dead discard weight (lbs)` = format(round(median(`Median Dead discard weight (lbs)`, na.rm=TRUE), 0), big.mark=","),
         .groups = "drop"
       )
   })
@@ -457,7 +457,7 @@ server <- function(input, output, session) {
       summarise(trips_total = sum(value, na.rm = TRUE), .groups = "drop") %>%
       group_by(mode) %>%
       summarise(
-        `Predicted trips` = format(round(median(trips_total, na.rm = TRUE), 0), big.mark=","),
+        `predicted trips` = format(round(median(trips_total, na.rm = TRUE), 0), big.mark=","),
         .groups = "drop"
       )
   })
@@ -482,7 +482,7 @@ server <- function(input, output, session) {
                     season = gsub("2026-", "", season), 
                     season = gsub("2025-", "", season)) %>% 
       dplyr::rename(
-        Policy       = run_name,
+        policy       = run_name,
         `bag limit`  = bag,
         `size limit` = len
       )
@@ -4461,6 +4461,7 @@ server <- function(input, output, session) {
   
   ####  Storing Inputs for decoupled model ####
   
+  #### regulations
   # regulations <- observeEvent(input$runmeplease,{
   #   library(httr)
   #   library(jsonlite)
