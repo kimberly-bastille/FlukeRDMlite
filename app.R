@@ -485,14 +485,20 @@ server <- function(input, output, session) {
       dplyr::group_by(run_name, state, species, mode, season) %>%
       tidyr::pivot_wider(names_from = measure, values_from = value) %>%
       dplyr::filter(!bag == 0) %>%
-      dplyr::mutate(season2 = paste0(op, " - ", cl)) %>%
+      dplyr::mutate(
+        op = lubridate::ymd(op),
+        cl = lubridate::ymd(cl),
+        op_formatted = trimws(format(op, "%b %e")),
+        cl_formatted = trimws(format(cl, "%b %e"))
+      ) %>% 
+      dplyr::mutate(season2 = paste0(op_formatted, " - ", cl_formatted)) %>%
       dplyr::group_by(run_name, state, species, mode) %>%
       dplyr::summarise(bag = paste(bag, collapse = ",<br>"), 
                        len = paste(len, collapse = ",<br>"),
                        season = paste(season2, collapse = ",<br>"), .groups = "drop") %>%
-      dplyr::mutate(mode   = if_else(mode == "", "All modes", mode),
-                    season = gsub("2026-", "", season), 
-                    season = gsub("2025-", "", season)) %>% 
+      dplyr::mutate(mode   = if_else(mode == "", "All modes", mode)) %>% #,
+                    #season = gsub("2026-", "", season), 
+                    #season = gsub("2025-", "", season)) %>% 
       dplyr::rename(
         policy       = run_name,
         `bag limit`  = bag,
