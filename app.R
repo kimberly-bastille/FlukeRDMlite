@@ -404,7 +404,10 @@ server <- function(input, output, session) {
         `median harvest weight (lbs)` = format(round(median(policy_total, na.rm = TRUE), 0), big.mark=","),
         `percent change from SQ`      = sprintf("%.2f%%", median(pct_change_draw, na.rm = TRUE)),
         .groups = "drop"
-      )
+      ) %>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_cv <- reactive({
@@ -419,7 +422,10 @@ server <- function(input, output, session) {
       summarise(
         `angler satisfaction ($)` = format(round(median(cv_total, na.rm = TRUE), 0), big.mark=","),
         .groups = "drop"
-      )
+      )%>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_discards <- reactive({
@@ -444,7 +450,10 @@ server <- function(input, output, session) {
         `median discard weight (lbs)`      = format(round(median(`Median Discard weight (lbs)`,      na.rm=TRUE), 0), big.mark=","),
         `median dead discard weight (lbs)` = format(round(median(`Median Dead discard weight (lbs)`, na.rm=TRUE), 0), big.mark=","),
         .groups = "drop"
-      )
+      )%>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_trips <- reactive({
@@ -459,7 +468,10 @@ server <- function(input, output, session) {
       summarise(
         `predicted trips` = format(round(median(trips_total, na.rm = TRUE), 0), big.mark=","),
         .groups = "drop"
-      )
+      )%>% 
+      mutate(mode = recode(mode, "fh" = "for hire", 
+                           "pr" = "private", 
+                           "sh" = "shore"))
   })
   
   coastwide_regulations <- reactive({
@@ -485,7 +497,10 @@ server <- function(input, output, session) {
         policy       = run_name,
         `bag limit`  = bag,
         `size limit` = len
-      )
+      )%>% 
+      mutate(mode = recode(mode, "FH" = "for hire", 
+                           "PR" = "private", 
+                           "SH" = "shore"))
   })
   
   
