@@ -5378,7 +5378,7 @@ server <- function(input, output, session) {
   # })
   
   observeEvent(input$runmeplease, {
-    output$message <- renderText("Regulations saved - we will run these soon be sure to change run name before clicking again.")
+    output$message <- renderText(paste0("Policy ", input$Run_Name," saved - your model run has been queued. Results will appear when the processing completes. Be sure to change the policy name before submitting again."))
   })
   
   # Get list of files from the folder
